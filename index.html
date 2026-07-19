@@ -40,11 +40,11 @@
   .lbl{font-size:12px;letter-spacing:2px;color:var(--dim)}
   .newrec{color:var(--gold);font-weight:700;letter-spacing:1px;animation:blink 0.8s step-end infinite}
   .reason{color:#ff9b8a;font-size:14px}
-  #rej{margin-top:10px;padding:14px 44px;border:none;border-radius:14px;cursor:pointer;
+  .cta{margin-top:10px;padding:16px 52px;border:none;border-radius:14px;cursor:pointer;
       background:var(--gold);color:#3a2400;font-family:"Arial Black",system-ui;font-weight:900;
-      font-size:18px;letter-spacing:2px;box-shadow:0 5px 0 #8a6110;transition:transform .06s}
-  #rej:active{transform:translateY(3px)}
-  #rej:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+      font-size:20px;letter-spacing:2px;box-shadow:0 5px 0 #8a6110;transition:transform .06s;touch-action:manipulation}
+  .cta:active{transform:translateY(3px)}
+  .cta:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   .ver{position:absolute;bottom:12px;font-size:11px;color:#7a5c36;letter-spacing:1px}
   @media (prefers-reduced-motion: reduce){
     .go,.newrec,button.pose.pulse{animation:none}
@@ -67,9 +67,10 @@
       <span>▸ <b>Mur fin</b> — tape la pose</span>
       <span>▸ <b>Mur épais</b> — reste appuyé jusqu'au bout</span>
       <span>▸ <b>Perfect</b> — pose prise au dernier moment = double points</span>
+      <span>▸ <b>La momie</b> — reste en pose trop longtemps et elle te rattrape</span>
     </div>
-    <div class="go">TAPE UN BOUTON POUR COMMENCER</div>
-    <div class="ver">Prototype Phase 0 · v0.1 · touches 1-2-3-4 au clavier</div>
+    <button id="play" class="cta">JOUER</button>
+    <div class="ver">Prototype Phase 0 · v0.2 · touches 1-2-3-4 au clavier</div>
   </div>
 
   <div id="dead" class="ov hidden">
@@ -85,7 +86,7 @@
       <div class="newrec hidden" id="newrec">NOUVEAU RECORD !</div>
     </div>
     <div class="lbl" id="fdist"></div>
-    <button id="rej">REJOUER</button>
+    <button id="rej" class="cta">REJOUER</button>
   </div>
 </div>
 
@@ -124,12 +125,12 @@ const groundY = ()=> LH-30;
 const SEG = {torso:44, ua:24, fa:22, th:29, sh:29, head:10};
 function poseAngles(id, t){
   switch(id){
-    case -1: { // course
+    case -1: { // démarche « walk like an Egyptian » : bras en zigzag qui alternent
       const s=Math.sin(t), s2=Math.sin(t+Math.PI);
-      return {hip:58+Math.abs(Math.sin(t))*2, torso:-80,
-        rUA:100+s2*35, rFA:35+s2*35, lUA:100+s*35, lFA:35+s*35,
-        rTh:90+s*36, rSh:112+s*36+Math.max(0,s2)*34,
-        lTh:90+s2*36, lSh:112+s2*36+Math.max(0,s)*34};
+      return {hip:57+Math.abs(Math.sin(t))*4, torso:-84+Math.sin(t*2)*3,
+        rUA:90-80*s, rFA:10-90*s, lUA:90+80*s, lFA:10+90*s,
+        rTh:90+s*38, rSh:118+s*38+Math.max(0,s2)*42,
+        lTh:90+s2*38, lSh:118+s2*38+Math.max(0,s)*42};
     }
     case 0: return {hip:62,torso:-90,rUA:-90,rFA:-90,lUA:96,lFA:99,rTh:88,rSh:88,lTh:92,lSh:92};
     case 1: return {hip:56,torso:-90,rUA:-40,rFA:-40,lUA:220,lFA:220,rTh:65,rSh:65,lTh:115,lSh:115};
@@ -199,7 +200,8 @@ let now=performance.now(), gdt=0;
 let scroll=0, dist=0, speed=280, runPh=0;
 let score=0, combo=0, best=0;
 try{ best=+(localStorage.getItem('pp_best')||0)||0; }catch(e){}
-let walls=[], parts=[], pops=[], bigMsg=null;
+let walls=[], parts=[], pops=[], crits=[], bigMsg=null;
+let mummyGap=280; const MUMMY_MAX=280;
 let freezeUntil=0, shake=0, flashT=0, comboPopT=0, flourishT=0;
 let unlocked=[], pendingIntro=[], INTROS=[];
 let seenThickMsg=false, seenFirstMsg=false;
@@ -210,6 +212,8 @@ function resetRun(){
   scroll=0; dist=0; speed=280; runPh=0;
   score=0; combo=0;
   walls=[]; parts=[]; pops=[]; bigMsg=null;
+  mummyGap=MUMMY_MAX;
+  musicStart();
   freezeUntil=0; shake=0; flashT=0; comboPopT=0; flourishT=0;
   unlocked=[0,2];
   pendingIntro=[];
@@ -267,6 +271,7 @@ btns.forEach((b)=>{
 const KEYMAP={Digit1:0,Digit2:1,Digit3:2,Digit4:3,Numpad1:0,Numpad2:1,Numpad3:2,Numpad4:3};
 window.addEventListener('keydown',e=>{
   if(e.code==='Space'||e.code==='Enter'){
+    ensureAudio();
     if(state==='menu') resetRun();
     else if(state==='dead' && now>deadOverlayAt+400 && deadOverlayAt>0) resetRun();
     return;
@@ -288,6 +293,15 @@ cv.addEventListener('pointerdown',()=>{
 document.getElementById('rej').addEventListener('pointerdown',e=>{
   e.stopPropagation(); ensureAudio(); resetRun();
 });
+document.getElementById('play').addEventListener('pointerdown',e=>{
+  e.stopPropagation(); ensureAudio(); resetRun();
+});
+document.getElementById('menu').addEventListener('pointerdown',()=>{
+  ensureAudio(); if(state==='menu') resetRun();
+});
+document.getElementById('dead').addEventListener('pointerdown',()=>{
+  ensureAudio(); if(state==='dead' && deadOverlayAt>0 && now>deadOverlayAt+400) resetRun();
+});
 
 /* ---------- audio (WebAudio, zéro asset) ---------- */
 let AC=null;
@@ -307,21 +321,79 @@ function tone(f,dur,type,vol,slideTo){
     o.start(); o.stop(AC.currentTime+dur);
   }catch(e){}
 }
-const sfxPass    =()=> tone(480,0.07,'square',0.09,650);
+const sfxPass    =()=> tone(Math.min(900,480+combo*12),0.07,'square',0.09,Math.min(1150,650+combo*12));
 const sfxPerfect =()=>{ tone(660,0.09,'square',0.11); setTimeout(()=>tone(880,0.13,'square',0.11),70); };
 const sfxHold    =()=> tone(300,0.28,'sine',0.07,390);
 const sfxDie     =()=> tone(210,0.55,'sawtooth',0.16,42);
 const sfxIntro   =()=> tone(740,0.16,'sine',0.09,980);
 const sfxFlourish=()=> [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.1),i*70));
 
+/* ---------- musique : séquenceur WebAudio, zéro asset ---------- */
+/* Mi phrygien dominant (gamme « orientale ») ; la mélodie n'entre qu'avec le combo. */
+let musOn=false, musNext=0, musStep=0, musGain=null, noiseB=null;
+function musicInit(){
+  if(!AC || musGain) return;
+  musGain=AC.createGain(); musGain.gain.value=0.85; musGain.connect(AC.destination);
+  noiseB=AC.createBuffer(1,Math.floor(AC.sampleRate*0.2),AC.sampleRate);
+  const d=noiseB.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+}
+function nOsc(t,f,dur,type,vol,slideTo){
+  try{
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type; o.frequency.setValueAtTime(f,t);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo,t+dur);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g); g.connect(musGain); o.start(t); o.stop(t+dur);
+  }catch(e){}
+}
+function nHat(t,open){
+  try{
+    const s=AC.createBufferSource(); s.buffer=noiseB;
+    const f=AC.createBiquadFilter(); f.type='highpass'; f.frequency.value=6500;
+    const g=AC.createGain(); const d=open?0.14:0.05;
+    g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+    s.connect(f); f.connect(g); g.connect(musGain); s.start(t); s.stop(t+d);
+  }catch(e){}
+}
+const NOTE=o=>82.41*Math.pow(2,o/12); // mi 2 = racine
+const BASS=[0,null,null,0, null,null,1,null, 0,null,null,0, 8,null,7,null];
+const LEAD=[12,13,16,null, 13,12,null,8, 12,null,13,null, 16,15,13,12,
+            null,12,13,16, 20,null,19,16, 15,null,13,null, 12,null,null,null];
+function musicTick(){
+  if(!musOn || !AC) return;
+  musicInit();
+  if(musNext < AC.currentTime-0.15) musNext=AC.currentTime+0.05; // resynchro après onglet en veille
+  const ahead=AC.currentTime+0.14;
+  while(musNext<ahead){
+    const t=musNext, s=musStep;
+    if(s%4===0) nOsc(t,130,0.13,'sine',0.3,45);                          // grosse caisse
+    nHat(t, combo>=6 && s%4===2);                                        // charley
+    const b=BASS[s%16]; if(b!=null) nOsc(t,NOTE(b),0.2,'triangle',0.16); // basse
+    if(combo>=4){
+      const l=LEAD[s%32];
+      if(l!=null){
+        nOsc(t,NOTE(l)*2,0.16,'square',0.055);                           // mélodie (combo ≥ 4)
+        if(combo>=10) nOsc(t,NOTE(l)*4,0.16,'triangle',0.04);            // octave (combo ≥ 10)
+      }
+    }
+    const bpm=104+Math.min(72,(state==='play'?speed:280)/8);             // le tempo suit la vitesse
+    musNext=t+60/bpm/2;
+    musStep=(musStep+1)%32;
+  }
+}
+setInterval(musicTick,30);
+function musicStart(){ if(!AC) return; musicInit(); musOn=true; musStep=0; musNext=AC.currentTime+0.06; }
+function musicStop(){ musOn=false; }
+
 /* ---------- génération procédurale ---------- */
 function rnd(a,b){return a+Math.random()*(b-a);}
 function pick(arr){return arr[(Math.random()*arr.length)|0];}
 function furthestX(){ let m=-1e9; for(const w of walls) m=Math.max(m,w.x+w.w); return m; }
 function gapFor(){
-  if(dist<150) return rnd(520,660);
-  if(dist<400) return rnd(430,560);
-  return Math.max(300, rnd(380,500)-(dist-400)*0.08);
+  if(dist<120) return rnd(500,620);
+  if(dist<350) return rnd(400,520);
+  return Math.max(260, rnd(340,460)-(dist-350)*0.12);
 }
 function mkWall(x,pose,w,thick,tele){
   return {x,w,pose,thick,tele,entered:false,passing:false,done:false,perfect:false,announced:false};
@@ -334,9 +406,9 @@ function spawnChunk(){
     unlocked.push(p);
     return;
   }
-  const canThick=dist>200, canBurst=dist>380;
+  const canThick=dist>180, canBurst=dist>340;
   const r=Math.random();
-  if(canBurst && r<0.24){
+  if(canBurst && r<0.28){
     const n=2+((Math.random()*3)|0);
     let px=x, last=-1;
     for(let i=0;i<n;i++){
@@ -391,10 +463,11 @@ function reward(w){
     if(!nx || nx.x-CHAR_X>300){ flourishT=0.55; sfxFlourish(); burst(CHAR_X,groundY()-90,'#ffc93c',22,240); }
   }
 }
-const REASONS={wrong:'Mauvaise pose !', none:'Aucune pose !', released:'Relâché trop tôt !'};
+const REASONS={wrong:'Mauvaise pose !', none:'Aucune pose !', released:'Relâché trop tôt !', caught:'Rattrapé par la momie !'};
 let deathReason='wrong';
 function die(w,reason){
   state='dead'; deathReason=reason; deadOverlayAt=0;
+  musicStop();
   rag={t:0};
   shake=RM?0:16; flashT=RM?0.1:0.3;
   burst(w.x, groundY()-90, '#8a6134', 26, 260);
@@ -418,7 +491,7 @@ function showDeadOverlay(){
 
 /* ---------- update ---------- */
 function update(dt){
-  speed=Math.min(640, 280*(1+dist/900));
+  speed=Math.min(700, 300*(1+dist/550));
   scroll+=speed*dt;
   dist+=speed*dt/PXM;
   runPh+=speed*dt/26;
@@ -461,8 +534,16 @@ function update(dt){
     }
   }
 
-  // pulse de télégraphie : premier passage d'une nouvelle pose
+  // la momie : rester en pose sans nécessité la fait se rapprocher
+  let holdingThick=false;
+  for(const w of walls){ if(w.passing && !w.done && w.thick){ holdingThick=true; break; } }
   const nw=nearestWallAhead();
+  const posePrep=nw && nw.x-CHAR_X<150;
+  if(heldPose!=null && !holdingThick && !posePrep) mummyGap-=95*dt;
+  else if(heldPose==null) mummyGap=Math.min(MUMMY_MAX, mummyGap+55*dt);
+  if(mummyGap<34){ die({x:CHAR_X-40,w:10}, 'caught'); return; }
+
+  // pulse de télégraphie : premier passage d'une nouvelle pose
   if(nw && nw.tele && nw.x<LW) setPulse(nw.pose); else setPulse(-1);
 
   if(flourishT>0) flourishT-=dt;
@@ -492,6 +573,26 @@ function updateFX(dt){
     const tx=rnd(0,LW);
     parts.push({x:tx,y:groundY()-rnd(140,220),vx:rnd(-12,12),vy:rnd(-46,-20),g:-6,t:0,life:rnd(.8,1.6),c:'#ff9d3c',r:rnd(1,2.2)});
   }
+  // bestioles : chauves-souris et scarabées
+  if(crits.length<5 && Math.random()<dt*0.4){
+    if(Math.random()<0.5) crits.push({k:'bat',x:LW+40,y:rnd(60,Math.max(130,LH*0.4)),ph:rnd(0,6)});
+    else crits.push({k:'scarab',x:LW+30,ph:rnd(0,6)});
+  }
+  const sp=(state==='play'?speed:60);
+  for(const c of crits){
+    c.ph+=dt*10;
+    if(c.k==='bat'){ c.x-=(sp*0.7+120)*dt; c.y+=Math.sin(c.ph)*30*dt; }
+    else c.x-=(sp*1.15+30)*dt;
+  }
+  crits=crits.filter(c=>c.x>-60);
+  // traînée dorée quand le combo chauffe
+  if(state==='play' && combo>=8 && Math.random()<dt*20){
+    parts.push({x:CHAR_X-14,y:groundY()-rnd(30,110),vx:-speed*0.5,vy:rnd(-20,20),g:0,t:0,life:0.5,c:'#ffc93c',r:rnd(1.5,3)});
+  }
+  // bandelettes de la momie quand elle chasse
+  if(state==='play' && mummyGap<MUMMY_MAX-30 && Math.random()<dt*4){
+    parts.push({x:CHAR_X-mummyGap-6,y:groundY()-rnd(40,100),vx:-rnd(30,80),vy:rnd(-10,10),g:20,t:0,life:0.6,c:'#cfc3a8',r:rnd(1.5,2.5)});
+  }
 }
 
 /* ---------- rendu ---------- */
@@ -505,6 +606,26 @@ function drawBG(){
   const off1=(scroll*0.25)%130;
   for(let x=-off1;x<LW;x+=130){ cx.beginPath(); cx.moveTo(x,0); cx.lineTo(x,gy); cx.stroke(); }
   for(let y=gy-70;y>0;y-=70){ cx.beginPath(); cx.moveTo(0,y); cx.lineTo(LW,y); cx.stroke(); }
+  // bande de hiéroglyphes (brillent avec le combo)
+  const off4=(scroll*0.42)%110, gi=Math.floor(scroll*0.42/110);
+  cx.strokeStyle='rgba(255,201,60,'+(0.10+Math.min(0.14,combo*0.008)).toFixed(3)+')';
+  cx.lineWidth=2.5; cx.lineCap='round';
+  let ii=gi;
+  for(let x=-off4; x<LW; x+=110, ii++){
+    const k=((ii%3)+3)%3, yG=gy-210;
+    if(k===0){ // ankh
+      cx.beginPath(); cx.arc(x,yG-8,6,0,7); cx.stroke();
+      cx.beginPath(); cx.moveTo(x,yG-2); cx.lineTo(x,yG+16);
+      cx.moveTo(x-7,yG+4); cx.lineTo(x+7,yG+4); cx.stroke();
+    } else if(k===1){ // œil d'Horus
+      cx.beginPath(); cx.moveTo(x-9,yG); cx.quadraticCurveTo(x,yG-9,x+9,yG);
+      cx.quadraticCurveTo(x,yG+6,x-9,yG); cx.stroke();
+      cx.beginPath(); cx.arc(x,yG-1,2.4,0,7); cx.stroke();
+    } else { // eau
+      cx.beginPath(); cx.moveTo(x-9,yG); cx.lineTo(x-3,yG-6); cx.lineTo(x+3,yG); cx.lineTo(x+9,yG-6); cx.stroke();
+      cx.beginPath(); cx.moveTo(x-9,yG+9); cx.lineTo(x-3,yG+3); cx.lineTo(x+3,yG+9); cx.lineTo(x+9,yG+3); cx.stroke();
+    }
+  }
   // colonnes + torches (parallaxe proche)
   const off2=(scroll*0.6)%340;
   for(let x=-off2;x<LW+60;x+=340){
@@ -565,6 +686,42 @@ function drawWall(w){
     cx.beginPath(); cx.moveTo(ax-9,ay-14); cx.lineTo(ax+9,ay-14); cx.lineTo(ax,ay); cx.closePath(); cx.fill();
   }
 }
+function drawCrits(){
+  const gy=groundY();
+  for(const c of crits){
+    if(c.k==='bat'){
+      const w=Math.sin(now/60+c.ph)*7;
+      cx.strokeStyle='#1c1008'; cx.lineWidth=3; cx.lineCap='round';
+      cx.beginPath();
+      cx.moveTo(c.x-9,c.y-w); cx.quadraticCurveTo(c.x-5,c.y,c.x,c.y);
+      cx.quadraticCurveTo(c.x+5,c.y,c.x+9,c.y-w); cx.stroke();
+      cx.fillStyle='#1c1008'; cx.beginPath(); cx.arc(c.x,c.y,2.6,0,7); cx.fill();
+    } else {
+      const j=Math.sin(now/40+c.ph);
+      cx.fillStyle='#2a1708';
+      cx.beginPath(); cx.ellipse(c.x,gy+10+j*0.4,5,3.4,0,0,7); cx.fill();
+      cx.strokeStyle='#2a1708'; cx.lineWidth=1;
+      for(let i=-1;i<=1;i++){
+        cx.beginPath(); cx.moveTo(c.x+i*3,gy+11); cx.lineTo(c.x+i*3+j,gy+14); cx.stroke();
+      }
+    }
+  }
+}
+function drawMummy(){
+  if(state==='menu') return;
+  const gy=groundY(), mx=CHAR_X-mummyGap;
+  if(mx<-60) return;
+  const t=runPh*1.06, s=Math.sin(t), s2=Math.sin(t+Math.PI);
+  const a={hip:56+Math.abs(Math.sin(t))*3, torso:-72,
+    rUA:-5+s*8, rFA:5+s*8, lUA:15+s2*8, lFA:25+s2*8,
+    rTh:90+s*34, rSh:116+s*34+Math.max(0,s2)*38,
+    lTh:90+s2*34, lSh:116+s2*34+Math.max(0,s)*38};
+  cx.fillStyle='rgba(0,0,0,.28)';
+  cx.beginPath(); cx.ellipse(mx,gy+9,20,6,0,0,7); cx.fill();
+  drawFigure(cx,a,mx,gy,1,{sil:'#cfc3a8'});
+  cx.fillStyle='#c92f2f';
+  cx.beginPath(); cx.arc(mx+22,gy-a.hip-56,2.2,0,7); cx.fill();
+}
 function drawChar(){
   const gy=groundY();
   cx.fillStyle='rgba(0,0,0,.28)';
@@ -621,11 +778,14 @@ function drawHUD(){
   cx.fillRect(hx,hy,hw*((combo%8)/8),6);
   if(combo>=2){
     const mult=1+Math.floor(combo/5);
-    const pop=comboPopT>0?1+comboPopT*1.6:1;
+    const pop=comboPopT>0?1+comboPopT*2.2:1;
+    const hot=combo>=20?'#ff5e5b':combo>=10?'#ff9d3c':'#ffc93c';
     cx.save();
-    cx.translate(LW/2,124); cx.scale(pop,pop);
-    cx.font='900 16px "Arial Black",system-ui';
-    cx.fillStyle='#ffc93c';
+    cx.translate(LW/2,128); cx.scale(pop,pop);
+    if(combo>=10) cx.rotate(Math.sin(now/90)*0.04);
+    cx.font='900 '+(combo>=10?21:17)+'px "Arial Black",system-ui';
+    cx.fillStyle='rgba(0,0,0,.4)'; cx.fillText('COMBO '+combo+'   ×'+mult,1.5,1.5);
+    cx.fillStyle=hot;
     cx.fillText('COMBO '+combo+'   ×'+mult,0,0);
     cx.restore();
   }
@@ -645,11 +805,20 @@ function render(){
   if(shake>0.5){ sx=(Math.random()-.5)*shake; sy=(Math.random()-.5)*shake; }
   cx.save(); cx.translate(sx,sy);
   drawBG();
+  drawCrits();
   for(const w of walls) drawWall(w);
+  drawMummy();
   drawChar();
   drawFX();
   cx.restore();
   drawHUD();
+  if(state!=='menu' && mummyGap<150){
+    const a=Math.min(0.45,(150-mummyGap)/150*0.5);
+    const g=cx.createLinearGradient(0,0,120,0);
+    g.addColorStop(0,'rgba(200,30,30,'+a.toFixed(3)+')');
+    g.addColorStop(1,'rgba(200,30,30,0)');
+    cx.fillStyle=g; cx.fillRect(0,0,120,LH);
+  }
   if(flashT>0){
     cx.fillStyle='rgba(255,80,55,'+Math.min(0.5,flashT*1.4)+')';
     cx.fillRect(0,0,LW,LH);
